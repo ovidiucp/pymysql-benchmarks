@@ -61,3 +61,19 @@ With a connection pool of 5 connections txMySQL is 2.5 times slower
 than adbapi. With all the I/O happening in the main thread, txMySQL
 has a hard time competing against the multi-threaded and blocking
 adbapi implementation.
+
+References
+==========
+
+The txMySQL implementation tested against is available at:
+
+https://github.com/ovidiucp/txMySQL
+
+The fork adds support for connection pools.
+
+
+The Tornado implementation used is available at:
+
+https://github.com/ovidiucp/tornado
+
+It adds a twisted-style reactor for Tornado.
