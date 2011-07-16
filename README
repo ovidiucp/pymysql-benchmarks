@@ -1,0 +1,63 @@
+This is a simple benchmark for various asynchronous Python MySQL
+client libraries.
+
+The client libraries tested here are:
+
+- Twisted's adbapi which uses the MySQL client library written in C.
+- the pure Python txMySQL asynchronous client library
+
+Both of these libraries assume they're running on the Twisted
+framework. The benchmarks allow you to run different reactor
+implementations:
+
+- Twisted's default reactor
+- the Tornado-based reactor for Twisted
+
+The command line options for the benchmark are the following:
+
+  --mysql_db          MySQL database to use
+  --mysql_host        Database host
+  --mysql_passwd      MySQL password
+  --mysql_user        MySQL user to use
+  --pool_size         Database connection pool size
+  --use_adbapi        Use twisted's adbapi module
+  --use_tornado       Use tornado twisted reactor instead of twisted's reactor
+  --use_txmysql       Use txMySQL database module
+
+One thing to note here is that the adbapi library will try to connect
+to the mysql server using a Unix socket, while the txMySQL always uses
+a TCP/IP socket. To make things even between the two implementations,
+try to run your database server on a remote machine.
+
+Below are some benchmark results. The benchmark program runs on my
+Hackintosh Core i7-2600K 3.4GHz (4 cores 8 threads) running MacOS X
+10.6.7. The database server runs on an Intel Xeon X3360 2.83GHz (4
+cores 4 threads) running Ubuntu Linux 9.04.
+
+The pool size specified was --pool_size=5
+
+Here are the times in seconds reported by the program:
+
+      	 Tornado   Twisted
+adbapi   18.34     19.07
+txMySQL  45.19     43.80
+
+
+          Network usage
+adbapi    1.8MB/sec
+txMySQL   0.42MB/sec
+
+
+With the adbapi benchmark the CPU on the client machine is at 140%
+with 6 threads.
+
+With the txMySQL benchmark the CPU on the client machine is maxed out
+at 100% with a single thread.
+
+Conclusion
+==========
+
+With a connection pool of 5 connections txMySQL is 2.5 times slower
+than adbapi. With all the I/O happening in the main thread, txMySQL
+has a hard time competing against the multi-threaded and blocking
+adbapi implementation.
