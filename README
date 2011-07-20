@@ -65,12 +65,10 @@ adbapi implementation.
 References
 ==========
 
-The txMySQL implementation tested against is available at:
+The txMySQL implementation tested against is available in the main
+trunk at:
 
-https://github.com/ovidiucp/txMySQL
-
-The fork adds support for connection pools.
-
+https://github.com/hybridlogic/txMySQL
 
 The Tornado-based reactor implementation used is available in the main
 trunk at:
