@@ -121,8 +121,8 @@ class TxMySQL(DbBenchmark):
 if __name__ == "__main__":
     tornado.options.parse_command_line()
     if options.use_tornado:
-        import tornado.platform.twistedreactor
-        tornado.platform.twistedreactor.install()
+        import tornado.platform.twisted
+        tornado.platform.twisted.install()
     from twisted.internet import reactor
     print "Using reactor %s" % reactor
 
