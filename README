@@ -5,62 +5,104 @@ The client libraries tested here are:
 
 - Twisted's adbapi which uses the MySQL client library written in C.
 - the pure Python txMySQL asynchronous client library
+- my own adb.py interface using tornado and adisp
 
-Both of these libraries assume they're running on the Twisted
+The adbapi and txMySQL libraries assume they're running on the Twisted
 framework. The benchmarks allow you to run different reactor
 implementations:
 
 - Twisted's default reactor
 - the Tornado-based reactor for Twisted
 
+The adb.py library is designed to run directly on top of Tornado and
+uses adisp.py to make asynchronous programming a lot easier.
+
+Here is how you write asynchronous database code with the adb and
+adisp modules:
+
+from adisp import process
+import adb
+
+
+    @process
+    def someFunctionInvokedFromIOLoop(self):
+        # Drop the table if it exists
+        yield self.adb.runOperation("drop table if exists benchmark")
+	# Create a table to insert the data into
+        yield self.adb.runOperation("""
+          create table benchmark (
+            userid int not null primary key,
+            data VARCHAR(100)
+          );
+        """)
+        rows_to_insert = 100000
+        # Insert some rows in parallel
+        start_time = time.time()
+        stmts = []
+        for i in xrange(rows_to_insert):
+            stmts.append(
+                ("insert into benchmark (userid, data) values (%s, %s)",
+                 (i, i)))
+        numrows = yield map(self.adb.runOperation, stmts)
+        end_time = time.time()
+
+        rows = yield self.adb.runQuery("select count(*) from benchmark")
+        print 'inserted %s records, time taken = %s seconds' % \
+            (rows, end_time - start_time)
+
+
 The command line options for the benchmark are the following:
 
-  --mysql_db          MySQL database to use
-  --mysql_host        Database host
-  --mysql_passwd      MySQL password
-  --mysql_user        MySQL user to use
+  --db                The database to use
+  --dbhost            Database host
+  --dbpasswd          Database user's password
+  --dbuser            Database user to use
   --pool_size         Database connection pool size
+  --use_adb           Use adb.py database module
   --use_adbapi        Use twisted's adbapi module
   --use_tornado       Use tornado twisted reactor instead of twisted's reactor
-  --use_txmysql       Use txMySQL database module
-
-One thing to note here is that the adbapi library will try to connect
-to the mysql server using a Unix socket, while the txMySQL always uses
-a TCP/IP socket. To make things even between the two implementations,
-try to run your database server on a remote machine.
+  --use_txmysql       Use txMySQL database module. Only works with Twisted and
+                      MySQL
 
 Below are some benchmark results. The benchmark program runs on my
 Hackintosh Core i7-2600K 3.4GHz (4 cores 8 threads) running MacOS X
-10.6.7. The database server runs on an Intel Xeon X3360 2.83GHz (4
-cores 4 threads) running Ubuntu Linux 9.04.
+10.6.7. The database servers were run on the same machine. The
+benchmark connects to the databases using TCP sockets instead of Unix
+domain sockets.
 
-The pool size specified was --pool_size=5
+The MySQL server version used was 5.1, while Postgres version was
+9.0.4.
+
+The pool size specified was --pool_size=10
 
 Here are the times in seconds reported by the program:
 
+MySQL:
       	 Tornado   Twisted
-adbapi   18.34     19.07
-txMySQL  45.19     43.80
+adb      11.79       N/A
+adbapi   18.99     19.74
+txMySQL  45.19     43.80 (numbers from a previous version of this benchmark)
 
 
-          Network usage
-adbapi    1.8MB/sec
-txMySQL   0.42MB/sec
+Postgres:
+      	 Tornado   Twisted
+adb       9.03       N/A
+adbapi   16.49     17.00
 
 
-With the adbapi benchmark the CPU on the client machine is at 140%
-with 6 threads.
-
-With the txMySQL benchmark the CPU on the client machine is maxed out
-at 100% with a single thread.
 
 Conclusion
 ==========
 
-With a connection pool of 5 connections txMySQL is 2.5 times slower
-than adbapi. With all the I/O happening in the main thread, txMySQL
-has a hard time competing against the multi-threaded and blocking
-adbapi implementation.
+The new adb.py module running on top of Tornado is 40% faster than
+Twisted's adbapi. As a bonus, in this benchmark the memory usage of
+adb was 140MB versus the 300MB used by Twisted's adbapi.
+
+When used with adisp, programming asynchronous database operations
+with adb and Tornado is a real breeze, since you no longer need to
+worry about creating callbacks to handle the results from the
+database.
+
 
 References
 ==========
