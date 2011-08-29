@@ -1,4 +1,4 @@
-# Thread pool to be used with Tornado
+# Thread pool to be used with Tornado.
 #
 # Author: Ovidiu Predescu
 # Date: August 2011
@@ -9,6 +9,7 @@ from threading import Thread
 from Queue import Queue, Empty
 from functools import partial
 import tornado.ioloop
+import time
 
 class ThreadPool:
     """Creates a thread pool containing `num_threads' worker threads.
@@ -58,7 +59,10 @@ class ThreadPool:
     environment).
     """
 
-    def __init__(self, per_thread_init_func=None, num_threads=10,
+    def __init__(self,
+                 per_thread_init_func=None,
+                 per_thread_close_func=None,
+                 num_threads=10,
                  queue_timeout=1,
                  ioloop=tornado.ioloop.IOLoop.instance()):
         self._ioloop = ioloop
@@ -68,7 +72,7 @@ class ThreadPool:
         self._threads = []
         self._running = True
         for i in xrange(num_threads):
-            t = WorkerThread(self, per_thread_init_func)
+            t = WorkerThread(self, per_thread_init_func, per_thread_close_func)
             t.start()
             self._threads.append(t)
 
@@ -78,12 +82,14 @@ class ThreadPool:
 
     def stop(self):
         self._running = False
+        map(lambda t: t.join(), self._threads)
 
 class WorkerThread(Thread):
-    def __init__(self, pool, per_thread_init_func):
+    def __init__(self, pool, per_thread_init_func, per_thread_close_func):
         Thread.__init__(self)
         self._pool = pool
         self._per_thread_init_func = per_thread_init_func
+        self._per_thread_close_func = per_thread_close_func
 
     def run(self):
         if self._per_thread_init_func:
@@ -100,3 +106,5 @@ class WorkerThread(Thread):
                     self._pool._ioloop.add_callback(partial(callback, result))
             except Empty:
                 pass
+        if self._per_thread_close_func:
+            self._per_thread_close_func(thread_state)
