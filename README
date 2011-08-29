@@ -33,16 +33,6 @@ from adb import Database
                             tx_connection_pool_size=2,
                             queue_timeout=0.001)
 
-    def __init__(self):
-        self.adb = Database(driver="psycopg2",
-                            host='DATABASE_HOST',
-                            database='DATABASE_DB',
-                            user='DATABASE_USER',
-                            password='DATABASE_PASSWD',
-                            num_threads=3,
-                            tx_connection_pool_size=2,
-                            queue_timeout=0.001)
-
 
     @process
     def someFunctionInvokedFromIOLoop(self):
@@ -83,6 +73,7 @@ You can also use transactions:
 
 To rollback a transaction, use rollbackTransaction(txId) instead of
 commitTransaction().
+
 
 
 The command line options for the benchmark are the following:
