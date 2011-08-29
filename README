@@ -21,7 +21,17 @@ Here is how you write asynchronous database code with the adb and
 adisp modules:
 
 from adisp import process
-import adb
+from adb import Database
+
+    def __init__(self):
+        self.adb = Database(driver="psycopg2",
+                            host='DATABASE_HOST',
+                            database='DATABASE_DB',
+                            user='DATABASE_USER',
+                            password='DATABASE_PASSWD',
+                            num_threads=3,
+                            tx_connection_pool_size=2,
+                            queue_timeout=0.001)
 
 
     @process
@@ -49,6 +59,20 @@ import adb
         rows = yield self.adb.runQuery("select count(*) from benchmark")
         print 'inserted %s records, time taken = %s seconds' % \
             (rows, end_time - start_time)
+
+You can also use transactions:
+
+    @process
+    def transactions(self):
+        txId = yield self.adb.beginTransaction()
+        yield self.adb.runOperation(
+            "insert into mytable (userid, data) values (%s, %s)",
+            (1, "test"),
+            txId)
+        yield self.adb.commitTransaction(txId)
+
+To rollback a transaction, use rollbackTransaction(txId) instead of
+commitTransaction().
 
 
 The command line options for the benchmark are the following:
