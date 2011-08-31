@@ -36,6 +36,7 @@ define("use_tornado", default=False,
 define("use_txmysql", default=False, help="Use txMySQL database module")
 define("use_adbapi", default=False, help="Use twisted's adbapi module")
 define("use_adb", default=False, help="Use our own adb module")
+define("use_momoko", default=False, help="Use the momoko module")
 
 define("use_postgres", default=False, help="Use Postgres with psycopg2")
 define("use_mysql", default=False, help="Use MySQL")
@@ -183,6 +184,57 @@ class AsyncDatabaseBenchmark:
         self.ioloop.stop()
         self.adb.stop()
 
+try:
+    # Quick hack to test agains momoko: http://momoko.61924.nl/
+    import momoko
+    has_momoko = True
+
+    class MomokoDatabaseBenchmark:
+        def __init__(self, database=None, user=None, password=None, host=None):
+            self.adb = momoko.AdispClient({
+                    'host': 'localhost',
+                    'database': database,
+                    'user': user,
+                    'password': password,
+                    'min_conn': 10,
+                    'max_conn': 10,
+                    'cleanup_timeout': 10
+                    })
+
+        def run(self):
+            self.ioloop = tornado.ioloop.IOLoop.instance()
+            self.ioloop.add_callback(self.whenRunningCallback)
+
+        @momoko.process
+        def whenRunningCallback(self):
+            # Drop the table if it exists
+            yield self.adb.execute("drop table if exists benchmark")
+            yield self.adb.execute("""
+          create table benchmark (
+            userid int not null primary key,
+            data VARCHAR(100)
+          );
+        """)
+            rows_to_insert = 100000
+            # Insert some rows
+            start_time = time.time()
+            stmts = []
+            for i in xrange(rows_to_insert):
+                yield self.adb.execute(
+                    "insert into benchmark (userid, data) values (%s, %s)",
+                    (i, i))
+            end_time = time.time()
+
+            cursor = yield self.adb.execute("select count(*) from benchmark")
+            rows = cursor.fetchall()
+            print 'inserted %s records, time taken = %s seconds' % \
+                (rows, end_time - start_time)
+            self.ioloop.stop()
+            self.adb.close()
+
+except ImportError:
+    has_momoko = False
+
 if __name__ == "__main__":
     tornado.options.parse_command_line()
     if options.use_tornado:
@@ -212,6 +264,14 @@ if __name__ == "__main__":
                                            user=options.dbuser,
                                            password=options.dbpasswd,
                                            host=options.dbhost)
+    elif options.use_momoko:
+        if not has_momoko:
+            print 'Could not find momoko in PYTHONPATH'
+            sys.exit(1)
+        benchmark = MomokoDatabaseBenchmark(database=options.db,
+                                            user=options.dbuser,
+                                            password=options.dbpasswd,
+                                            host=options.dbhost)
 
     if benchmark:
         benchmark.run()
@@ -221,7 +281,7 @@ if __name__ == "__main__":
             'specified'
         sys.exit(1)
 
-    if options.use_adb:
+    if options.use_adb or options.use_momoko:
         print "Using Tornado IOLoop directly"
         tornado.ioloop.IOLoop.instance().start()
     else:
